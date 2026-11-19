@@ -1,5 +1,6 @@
 import Mathlib.Basic.Real.Basic
 --import Mathlib.Algebra.Order.Archimedean.Real.Basic
+import Mathlib.NumberTheory.Real.Irrational
 --import Mathlib.Tactic.Ring
 --import Mathlib.Tactic.Linarith
 --import Mathlib.Tactic.NormNum
@@ -30,19 +31,19 @@ def IsInteriorTo {S} [MetricSpace S] (x₀ : S) (E : Set S) : Prop :=
 def Interior {S} [MetricSpace S] (E : Set S) : Set S :=
   { x : S | IsInteriorTo x E }
 
-/-theorem center_of_neighborhood_is_member
+theorem center_of_neighborhood_is_member
     {S} [MetricSpace S] (x : S) (r : ℝ) (hr : 0 < r)
     : x ∈ Neighborhood x r := by
   unfold Neighborhood
   norm_num
-  exact hr-/
+  exact hr
 
-/-theorem interior_implies_member
+theorem interior_implies_member
     {S} [MetricSpace S] (x : S) (E : Set S) (h : IsInteriorTo x E) : x ∈ E := by
   unfold IsInteriorTo at h
   obtain ⟨r, hr⟩ := h
   have : x ∈ Neighborhood x r := center_of_neighborhood_is_member x r (hr.1)
-  tauto-/
+  tauto
 
 open Set
 
@@ -101,3 +102,177 @@ theorem any_member_of_open_interval_is_interior {a : ℝ} {b : ℝ} {x : ℝ} (_
       have : x - r ≥ a                                   := by dsimp [r]; linarith [hright]
       .                                                  intro y hy; exact ⟨lt_of_le_of_lt this hy.1, hy.2⟩
     use r
+
+-- Theorem. Any element x of (a, b) is interior to
+-- [a, b].
+theorem any_member_of_open_interval_is_interior_to_closed_interval
+    {a : ℝ} {b : ℝ} {x : ℝ} (_ : x ∈ Ioo a b)
+    : IsInteriorTo x (Icc a b) := by
+  -- Need to show ∃ Nᵣ(x) ⊆ [a, b] with r ≥ 0.
+  unfold IsInteriorTo
+  -- Proof is by cases.
+  rcases le_total (x - a) (b - x) with hleft | hright
+  · -- Case 1: x is in the left half of [a, b].
+    -- Let r = x - a.
+    let r := x - a
+    -- Claim: r > 0.
+    have : r > 0                                         := by change x - a > 0; exact sub_pos.mpr (Set.mem_Ioo.mp ‹x ∈ Ioo a b›).1
+    -- Claim: Nᵣ(x) ⊆ [a, b].
+    have : Neighborhood x r ⊆ Icc a b := by
+      -- Nᵣ(x) = (x - r, x + r) = (a, x + r).
+      suffices Ioo a (x + r) ⊆ Icc a b                   by intro y hy; change dist y x < r at hy; (have hd : |y - x| < r := by simpa [Real.dist_eq] using hy); rcases abs_lt.mp hd with ⟨hl, hu⟩; apply this; change a < y ∧ y < x + r; constructor <;> linarith [show r = x - a by rfl]
+      -- x + r ≤ b.
+      have : x + r ≤ b                                   := by simpa [r, sub_eq_add_neg, add_assoc, add_comm, add_left_comm] using add_le_add_right hleft x
+      .                                                  intro y hy; exact ⟨le_of_lt hy.1, le_of_lt (lt_of_lt_of_le hy.2 this)⟩
+    use r
+  · -- Case 2: x is in the right half of [a, b].
+    -- This time we use r = b - x, but the rest of
+    -- the proof is similar.
+    let r := b - x
+    have : r > 0                                         := by dsimp [r]; linarith [Set.mem_Ioo.mp ‹x ∈ Ioo a b›]
+    have : Neighborhood x r ⊆ Icc a b := by
+      suffices Ioo (x - r) b ⊆ Icc a b                   by intro y hy; change dist y x < r at hy; (have hd : |y - x| < r := by simpa [Real.dist_eq] using hy); rcases abs_lt.mp hd with ⟨hl, hu⟩; (have hlow : a ≤ x - r := by dsimp [r]; linarith [hright]); (have hup : x + r = b := by dsimp [r]; ring); apply this; change x - r < y ∧ y < b; constructor <;> linarith
+      have : x - r ≥ a                                   := by dsimp [r]; linarith [hright]
+      .                                                  intro y hy; exact ⟨le_trans this (le_of_lt hy.1), le_of_lt hy.2⟩
+    use r
+
+-- Definition. A set E is *open* if every point in E is
+-- interior.
+def IsOpen421 {S} [MetricSpace S] (E : Set S) :=
+  ∀ x ∈ E, IsInteriorTo x E
+
+-- Definition. A set E is *closed* if its complement is
+-- open.
+def IsClosed421 {S} [MetricSpace S] (E : Set S) :=
+  IsOpen421 Eᶜ
+
+-- Theorem. The interval (a, b) is open in ℝ.
+theorem open_interval_is_open (a : ℝ) (b : ℝ)
+    : IsOpen421 (Ioo a b) := by
+  -- We need to show that every element is interior.
+  unfold IsOpen421
+  -- Let x ∈ (a, b).
+  intro x hx
+  -- Then x is interior by an earlier theorem.
+  .                                                      exact any_member_of_open_interval_is_interior hx
+
+-- Theorem. The interval [a, b] is closed in ℝ.
+theorem closed_interval_is_closed (a : ℝ) (b : ℝ)
+    : IsClosed421 (Icc a b) := by
+  -- We need to prove that [a, b]ᶜ is open.
+  unfold IsClosed421
+  -- Let x ∈ [a, b]ᶜ. We'll prove that x is interior.
+  unfold IsOpen421
+  intro x hx
+  -- Either x < a or x > b. The rest of the proof is by
+  -- cases.
+  have hlr: x < a ∨ x > b := by change ¬ (a ≤ x ∧ x ≤ b) at hx; (rcases lt_or_ge x a with h | h); (· exact Or.inl h); · right; exact not_le.mp (by intro hxb; exact hx ⟨h, hxb⟩)
+  rcases hlr with hl | hr
+  · -- Case 1: x < a.
+    -- We need to find a neighborhood Nᵣ(x) ⊆ [a, b]ᶜ
+    -- with positive radius.
+    unfold IsInteriorTo
+    -- Let r = a - x.
+    let r := a - x
+    -- r > 0.
+    have : r > 0 := by change a - x > 0; exact sub_pos.mpr hl
+    -- Nᵣ(x) ⊆ [a, b]ᶜ.
+    have : Neighborhood x r ⊆ (Icc a b)ᶜ := by intro y hy; change dist y x < r at hy; (have hd : |y - x| < r := by simpa [Real.dist_eq] using hy); have hupper := (abs_lt.mp hd).2; intro hycc; dsimp [r] at hupper; linarith [hycc.1]
+    -- We've found the desired neighborhood.
+    use r
+  · -- Case 2: b < x. The proof is similar:
+    unfold IsInteriorTo
+    let r := x - b
+    have : r > 0 := by change x - b > 0; exact sub_pos.mpr hr
+    have : Neighborhood x r ⊆ (Icc a b)ᶜ := by intro y hy; change dist y x < r at hy; (have hd : |y - x| < r := by simpa [Real.dist_eq] using hy); have hlow := (abs_lt.mp hd).1; intro hycc; dsimp [r] at hlow; linarith [hycc.2]
+    use r
+
+theorem interval_from_a_to_infinity_excluding_a_is_open
+    (a : ℝ) : IsOpen421 (Ioi a) := by
+  unfold IsOpen421
+  intro x hx
+  unfold IsInteriorTo
+  let r := x - a
+  have : r > 0 := by change x - a > 0; exact sub_pos.mpr hx
+  have : Neighborhood x r ⊆ Ioi a := by intro y hy; change dist y x < r at hy; rw [Real.dist_eq] at hy; rcases abs_lt.mp hy with ⟨hlo, _⟩; change a < y; nlinarith [show r = x - a by rfl]
+  use r
+
+theorem interval_from_minus_infinity_to_b_excluding_b_is_open
+    (b : ℝ) : IsOpen421 (Iio b) := by
+  unfold IsOpen421
+  intro x hx
+  unfold IsInteriorTo
+  let r := b - x
+  have : r > 0 := by simpa [r] using (sub_pos.mpr (Set.mem_Iio.mp hx))
+  have : Neighborhood x r ⊆ Iio b := by intro y hy; change dist y x < r at hy; rw [Real.dist_eq] at hy; have hle : y - x ≤ |y - x| := le_abs_self (y - x); change y < b; dsimp [r] at hy; nlinarith
+  use r
+
+theorem interval_from_a_to_infinity_including_a_is_closed
+    (a : ℝ) : IsClosed421 (Ici a) := by
+  unfold IsClosed421
+  suffices IsOpen421 (Iio a) by simpa using this
+  exact interval_from_minus_infinity_to_b_excluding_b_is_open a
+
+theorem whole_real_line_is_open : IsOpen421 (univ : Set ℝ) := by
+  unfold IsOpen421
+  intro x hx
+  unfold IsInteriorTo
+  use 1
+  constructor; (· norm_num); · intro y hy; exact Set.mem_univ y
+
+theorem empty_set_is_open : IsOpen421 (S := ℝ) ∅ := by
+  unfold IsOpen421
+  .                                                      intro x hx; exact False.elim hx
+
+theorem whole_real_line_is_closed : IsClosed421 (univ : Set ℝ) := by
+  unfold IsClosed421
+  suffices IsOpen421 ∅ by simpa using this
+  exact empty_set_is_open
+
+theorem empty_set_is_closed : IsClosed421 (S := ℝ) ∅ := by
+  unfold IsClosed421
+  suffices IsOpen421 univ by simpa using this
+  exact whole_real_line_is_open
+
+def Rational (x : ℝ) : Prop := ¬(Irrational x)
+
+def Rationals : Set ℝ := { x : ℝ | Rational x }
+
+def Irrationals : Set ℝ := { x : ℝ | Irrational x }
+
+-- Ross Exercise 13.10(a)
+example (x : ℝ) : ¬(IsInteriorTo x { 1 / (n : ℝ) | n : PNat }) := by
+  let E := { 1 / (n : ℝ) | n : PNat }
+  unfold IsInteriorTo
+  push Not
+  intro r hr
+  have: ∀ e ∈ E, Rational e := by intro e he; rcases he with ⟨n, hn⟩; intro hi; unfold Irrational at hi; apply hi; refine ⟨(n : ℚ)⁻¹, ?_⟩; simpa [div_eq_mul_inv] using hn
+  have hirrational: ∃ x₁ ∈ Neighborhood x r, Irrational x₁ := by (obtain ⟨y, hyirr, hy₁, hy₂⟩ := exists_irrational_btwn (show x - r < x + r by linarith)); refine ⟨y, ?_, hyirr⟩; change dist y x < r; rw [Real.dist_eq, abs_lt]; constructor <;> linarith
+  obtain ⟨x₁, hx₁⟩ := hirrational
+  have : x₁ ∉ E := by intro hE; exact this x₁ hE hx₁.2
+  exact Set.not_subset.mpr ⟨x₁, hx₁.1, this⟩
+
+-- Ross Exercise 13.10(b)
+example (x : ℝ) : ¬(IsInteriorTo x Rationals) := by
+  unfold IsInteriorTo
+  push Not
+  intro r hr
+  have hirrational: ∃ x₁ ∈ Neighborhood x r, Irrational x₁ := by (obtain ⟨y, hyirr, hy₁, hy₂⟩ := exists_irrational_btwn (show x - r < x + r by linarith)); refine ⟨y, ?_, hyirr⟩; change dist y x < r; rw [Real.dist_eq, abs_lt]; constructor <;> linarith
+  obtain ⟨x₁, hx₁⟩ := hirrational
+  exact Set.not_subset.mpr ⟨x₁, hx₁.1, by simpa [Rationals, Rational] using hx₁.2⟩
+
+theorem union_of_collection_of_open_is_open {S} [MetricSpace S] (C : Set (Set S)) (_ : ∀ E ∈ C, IsOpen421 E) : IsOpen421 (⋃₀ C) := by
+  unfold IsOpen421
+  intro x hx
+  have hexistsE₁: ∃ E₁ ∈ C, x ∈ E₁ := by rcases mem_sUnion.mp hx with ⟨E, hE, hxE⟩; exact ⟨E, hE, hxE⟩
+  obtain ⟨E₁, hE₁⟩ := hexistsE₁
+  have : IsOpen421 E₁ := by exact (‹∀ E ∈ C, IsOpen421 E› E₁ hE₁.1)
+  have hexistsr: ∃ r > 0, Neighborhood x r ⊆ E₁ := by exact this x hE₁.2
+  obtain ⟨r, hr⟩ := hexistsr
+  have : Neighborhood x r ⊆ ⋃₀ C := by intro y hy; simp only [Set.mem_sUnion]; exact ⟨E₁, hE₁.1, hr.2 hy⟩
+  exact ⟨r, hr.1, this⟩
+
+theorem intersection_of_two_opens_is_open {S} [MetricSpace S] {E₁ : Set S} {E₂ : Set S} (_ : IsOpen421 E₁) (_ : IsOpen421 E₂) : IsOpen421 (E₁ ∩ E₂) := by
+  unfold IsOpen421
+  intro x hx
+  have : x ∈ E₁ := by
