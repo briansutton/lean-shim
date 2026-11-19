@@ -49,7 +49,7 @@ open Set
 -- Theorem. The left endpoint of any closed interval
 -- [a, b] is not interior to the interval.
 theorem left_endpoint_of_closed_interval_is_not_interior
-    {a : ℝ} {b : ℝ} : ¬(IsInteriorTo a (Icc a b)) := by
+    (a : ℝ) (b : ℝ) : ¬(IsInteriorTo a (Icc a b)) := by
   -- We need to show that no neighborhood of a (of
   -- positive radius) is contained within [a, b].
   unfold IsInteriorTo
