@@ -275,4 +275,128 @@ theorem union_of_collection_of_open_is_open {S} [MetricSpace S] (C : Set (Set S)
 theorem intersection_of_two_opens_is_open {S} [MetricSpace S] {E₁ : Set S} {E₂ : Set S} (_ : IsOpen421 E₁) (_ : IsOpen421 E₂) : IsOpen421 (E₁ ∩ E₂) := by
   unfold IsOpen421
   intro x hx
-  have : x ∈ E₁ := by
+  have : x ∈ E₁ := by exact hx.1
+  have : x ∈ E₂ := by exact hx.2
+  have : IsInteriorTo x E₁ := by exact ‹IsOpen421 E₁› x hx.1
+  have : IsInteriorTo x E₂ := by exact ‹IsOpen421 E₂› x hx.2
+  have hexists1: ∃ r₁ > 0, Neighborhood x r₁ ⊆ E₁ := by rcases ‹IsInteriorTo x E₁› with ⟨r₁, hr₁, hsub⟩; exact ⟨r₁, hr₁, hsub⟩
+  obtain ⟨r₁, hr₁⟩ := hexists1
+  have hexists2: ∃ r₂ > 0, Neighborhood x r₂ ⊆ E₂ := by simpa [IsInteriorTo] using this
+  obtain ⟨r₂, hr₂⟩ := hexists2
+  let r := min r₁ r₂
+  let N := Neighborhood x r
+  have : N ⊆ E₁ := by intro y hy; change dist y x < min r₁ r₂ at hy; (rcases le_total r₁ r₂ with h | h); (· rw [min_eq_left h] at hy; exact hr₁.2 (by change dist y x < r₁; exact hy)); · rw [min_eq_right h] at hy; exact hr₁.2 (by change dist y x < r₁; exact lt_of_lt_of_le hy h)
+  have : N ⊆ E₂ := by intro y hy; change dist y x < min r₁ r₂ at hy; (rcases le_total r₁ r₂ with h | h); (· rw [min_eq_left h] at hy; exact hr₂.2 (by change dist y x < r₂; exact lt_of_lt_of_le hy h)); · rw [min_eq_right h] at hy; exact hr₂.2 (by change dist y x < r₂; exact hy)
+  have : N ⊆ E₁ ∩ E₂ := by intro y hy; exact ⟨(‹N ⊆ E₁›) hy, (‹N ⊆ E₂›) hy⟩
+  . exact ⟨r, lt_min hr₁.1 hr₂.1, this⟩
+
+theorem intersection_of_collection_of_closed_is_closed {S} [MetricSpace S] (C : Set (Set S)) (_ : ∀ E ∈ C, IsClosed421 E) : IsClosed421 (⋂₀ C) := by
+  unfold IsClosed421
+  suffices IsOpen421 (⋃₀ { Eᶜ | E ∈ C }) by (have hEq : (⋂₀ C)ᶜ = ⋃₀ {Eᶜ | E ∈ C} := by ext y; simp); rw [hEq]; exact this
+  have : ∀ E ∈ C, IsOpen421 Eᶜ := by intro E hE; simpa [IsClosed421] using (‹∀ E ∈ C, IsClosed421 E› E hE)
+  apply union_of_collection_of_open_is_open; intro F hF; rcases hF with ⟨E, hE, hEq⟩; rw [← hEq]; exact this E hE
+
+theorem union_of_two_closeds_is_closed {S} [MetricSpace S] {E₁ : Set S} {E₂ : Set S} (_ : IsClosed421 E₁) (_ : IsClosed421 E₂) : IsClosed421 (E₁ ∪ E₂) := by
+  unfold IsClosed421
+  suffices IsOpen421 (E₁ᶜ ∩ E₂ᶜ) by simpa using this
+  have hE1open : IsOpen421 E₁ᶜ := by simpa [IsClosed421] using ‹IsClosed421 E₁›
+  have hE2open : IsOpen421 E₂ᶜ := by simpa [IsClosed421] using ‹IsClosed421 E₂›
+  --unfold IsOpen421; intro x hx; have h₁ : IsInteriorTo x E₁ᶜ := ‹IsOpen421 E₁ᶜ› x hx.1; have h₂ : IsInteriorTo x E₂ᶜ := ‹IsOpen421 E₂ᶜ› x hx.2; rcases h₁ with ⟨r₁, hr₁, hs₁⟩; rcases h₂ with ⟨r₂, hr₂, hs₂⟩; refine ⟨min r₁ r₂, lt_min hr₁ hr₂, ?_⟩; intro y hy; change dist y x < min r₁ r₂ at hy; constructor; (· apply hs₁; change dist y x < r₁; exact lt_of_lt_of_le hy (min_le_left _ _)); · apply hs₂; change dist y x < r₂; exact lt_of_lt_of_le hy (min_le_right _ _)
+  apply (intersection_of_two_opens_is_open hE1open hE2open)
+
+def IsBoundary {S} [MetricSpace S] (x₀ : S) (E : Set S) :=
+  ∀ r : ℝ, 0 < r →
+    (let N := Neighborhood x₀ r
+    N ∩ E ≠ ∅ ∧ N ∩ Eᶜ ≠ ∅)
+
+def Boundary {S} [MetricSpace S] (E : Set S) :=
+  { x : S | IsBoundary x E }
+
+example (a : ℝ) (b : ℝ) (hle : a ≤ b) : IsBoundary a (Icc a b) := by
+  unfold IsBoundary
+  intro r hr N
+  constructor
+  · have : a ∈ N := by unfold N; unfold Neighborhood; change dist a a < r; simp; exact hr
+    have : a ∈ Icc a b := by unfold Icc; change a ≤ a ∧ a ≤ b; simp; exact hle
+    intro h; have hm : a ∈ N ∩ Icc a b := ⟨‹a ∈ N›, ‹a ∈ Icc a b›⟩; rw [h] at hm; exact hm
+  · let x := a - r / 2
+    have : x ∈ N := by change dist x a < r; rw [Real.dist_eq]; dsimp [x]; (rw [show a - r / 2 - a = -(r / 2) by ring, abs_neg, abs_of_pos (half_pos hr)]); linarith
+    have : x ∉ Icc a b := by intro hx; (have hlt : a - r / 2 < a := by rw [sub_lt_iff_lt_add]; exact lt_add_of_pos_right _ (half_pos hr)); exact (not_le_of_gt hlt) hx.1
+    have : x ∈ (Icc a b)ᶜ := by intro hx; exact this hx
+    intro h; (have hm : x ∈ N ∩ (Icc a b)ᶜ := ⟨by assumption, by assumption⟩); rw [h] at hm; exact hm
+
+example {S} [MetricSpace S] (x : S) (E : Set S) : ¬(IsInteriorTo x E ∧ IsBoundary x E) := by
+  push Not
+  intro hinterior
+  unfold IsBoundary
+  push Not
+  unfold IsInteriorTo at hinterior
+  obtain ⟨r, hr⟩ := hinterior
+  obtain ⟨hrpos, hN⟩ := hr
+  use r
+  constructor
+  · exact hrpos
+  · set N := Neighborhood x r
+    suffices (N ∩ Eᶜ) = ∅ by intro h; obtain ⟨y, hy⟩ := h.2; have hmem : y ∈ (∅ : Set S) := this ▸ hy; exact hmem
+    apply Set.Subset.antisymm; (· intro y hy; exact (hy.2 (hN hy.1)).elim); · exact Set.empty_subset _
+
+lemma boundary_subset_of_boundary_of_complement {S} [MetricSpace S] (x : S) (E : Set S) (hx : IsBoundary x E) : IsBoundary x Eᶜ := by
+  unfold IsBoundary at hx
+  unfold IsBoundary
+  rw [compl_compl]
+  intro r hr; exact ⟨(hx r hr).2, (hx r hr).1⟩
+
+theorem boundary_of_set_equals_boundary_of_complement {S} [MetricSpace S] (E : Set S) : Boundary E = Boundary Eᶜ := by
+  suffices Boundary E ⊆ Boundary Eᶜ ∧ Boundary Eᶜ ⊆ Boundary E by exact Set.Subset.antisymm this.1 this.2
+  constructor
+  · intro x hx
+    unfold Boundary at hx
+    change IsBoundary x E at hx
+    unfold Boundary
+    change IsBoundary x Eᶜ
+    apply boundary_subset_of_boundary_of_complement x E hx
+  · intro x hx
+    unfold Boundary at hx
+    change IsBoundary x Eᶜ at hx
+    unfold Boundary
+    change IsBoundary x E
+    have : IsBoundary x Eᶜᶜ := by apply boundary_subset_of_boundary_of_complement x Eᶜ hx
+    simp_all only [compl_compl]
+
+theorem open_iff_disjoint_from_boundary {S} [MetricSpace S] (E : Set S) : IsOpen421 E ↔ E ∩ Boundary E = ∅ := by
+  constructor
+  · intro hopen
+    suffices ∀ x : S, x ∈ E → ¬(IsBoundary x E) by ext x; constructor; (· intro hx; exact (this x hx.1) hx.2); · intro hx; simp at hx
+    intro x hx
+    have : IsInteriorTo x E := by exact hopen x hx
+    intro hb; unfold IsBoundary at hb; unfold IsInteriorTo at this; obtain ⟨r, hrpos, hN⟩ := this; have hcomp := (hb r hrpos).2; (have hEq : Neighborhood x r ∩ Eᶜ = ∅ := by apply Set.Subset.antisymm; (· intro y hy; exact (hy.2 (hN hy.1)).elim); · exact Set.empty_subset _); exact hcomp hEq
+  · intro hdisjoint
+    unfold IsOpen421
+    intro x hx
+    have hnotboundary: ¬(IsBoundary x E) := by intro hb; have h : x ∈ E ∩ Boundary E := ⟨hx, hb⟩; rw [hdisjoint] at h; exact h
+    unfold IsBoundary at hnotboundary
+    push Not at hnotboundary
+    obtain ⟨r, hr⟩ := hnotboundary
+    obtain ⟨hrpos, h⟩ := hr
+    unfold IsInteriorTo
+    use r
+    constructor
+    · exact hrpos
+    · let N := Neighborhood x r
+      have : (N ∩ E) = ∅ ∨ (N ∩ Eᶜ) = ∅ := by by_cases hne : N ∩ Eᶜ = ∅; (· exact Or.inr hne); · left; by_contra hnot; apply h; constructor; (· exact Set.nonempty_iff_ne_empty.mpr hnot); · exact Set.nonempty_iff_ne_empty.mpr hne
+      have : N ∩ E ≠ ∅ := by apply Set.nonempty_iff_ne_empty.mp; exact ⟨x, ⟨by simpa [N, Neighborhood] using hrpos, hx⟩⟩
+      have : N ∩ Eᶜ = ∅ := by by_contra hne; apply h; constructor; (· exact Set.nonempty_iff_ne_empty.mpr this); · exact Set.nonempty_iff_ne_empty.mpr hne
+      intro y hy; by_contra hye; have hm : y ∈ N ∩ Eᶜ := ⟨hy, hye⟩; rw [this] at hm; exact hm
+
+example {S} [MetricSpace S] (E : Set S) : IsClosed421 E ↔ Boundary E ⊆ E := by
+  constructor
+  · intro hclosed
+    have : IsOpen421 Eᶜ := by simpa [IsClosed421] using hclosed
+    have : Eᶜ ∩ Boundary Eᶜ = ∅ := by exact (open_iff_disjoint_from_boundary Eᶜ).mp this
+    have : Eᶜ ∩ Boundary E = ∅ := by ext y; constructor; (· intro hy; (have hy' : y ∈ Eᶜ ∩ Boundary Eᶜ := by rw [← boundary_of_set_equals_boundary_of_complement E]; exact hy); rw [this] at hy'; simpa using hy'); · simp
+    intro x hx; by_contra hnot; have hmem : x ∈ Eᶜ ∩ Boundary E := ⟨hnot, hx⟩; rw [this] at hmem; exact hmem
+  · intro hcontainsboundary
+    have : Boundary E ∩ Eᶜ = ∅ := by apply Set.Subset.antisymm; (· intro x hx; exact (hx.2 (hcontainsboundary hx.1)).elim); · exact Set.empty_subset _
+    have : Boundary Eᶜ ∩ Eᶜ = ∅ := by rw [← boundary_of_set_equals_boundary_of_complement E]; exact this
+    have : IsOpen421 Eᶜ := by apply (open_iff_disjoint_from_boundary Eᶜ).2; simpa [Set.inter_comm] using this
+    unfold IsClosed421; exact this
