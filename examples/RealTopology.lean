@@ -400,3 +400,57 @@ example {S} [MetricSpace S] (E : Set S) : IsClosed421 E ↔ Boundary E ⊆ E := 
     have : Boundary Eᶜ ∩ Eᶜ = ∅ := by rw [← boundary_of_set_equals_boundary_of_complement E]; exact this
     have : IsOpen421 Eᶜ := by apply (open_iff_disjoint_from_boundary Eᶜ).2; simpa [Set.inter_comm] using this
     unfold IsClosed421; exact this
+
+def IsUpperBound (M : ℝ) (E : Set ℝ) : Prop :=
+  ∀ x ∈ E, x ≤ M
+
+def IsBoundedBelow (E : Set ℝ) : Prop :=
+  ∃ L : ℝ, ∀ x ∈ E, L ≤ x
+
+def IsBoundedAbove (E : Set ℝ) : Prop :=
+  ∃ M : ℝ, IsUpperBound M E
+
+def IsBounded (E : Set ℝ) : Prop :=
+  IsBoundedBelow E ∧ IsBoundedAbove E
+
+def IsCompact421 (E : Set ℝ) : Prop :=
+  IsBounded E ∧ IsClosed421 E
+
+#print isLUB_csSup
+
+def IsSupremum (M : ℝ) (E : Set ℝ) : Prop :=
+  IsUpperBound M E ∧ (∀ t : ℝ, t < M → ¬(IsUpperBound t E))
+
+/-theorem sup_exists
+    (E : Set ℝ) (hnonempty : E.Nonempty) (hbdd : IsBoundedAbove E)
+    : ∃ M : ℝ, (∀ x ∈ E, x ≤ M) ∧ (∀ t : ℝ, t < M → ∃ x ∈ E, t < x) := by
+  let M := sSup E; have hlub : IsLUB E M := isLUB_csSup hnonempty hbdd; refine ⟨M, hlub.1, ?_⟩; intro t ht; by_contra hnone; (have htub : ∀ x ∈ E, x ≤ t := by intro x hx; exact le_of_not_gt (fun htx : t < x => hnone ⟨x, hx, htx⟩)); exact (not_lt_of_ge (hlub.2 htub)) ht-/
+
+theorem sup_exists
+    (E : Set ℝ) (hnonempty : E.Nonempty) (hbdd : IsBoundedAbove E)
+    : ∃ M : ℝ, IsSupremum M E := by
+  let M := sSup E; have hlub : IsLUB E M := isLUB_csSup hnonempty hbdd; refine ⟨M, hlub.1, ?_⟩; intro t ht htub; exact (not_lt_of_ge (hlub.2 htub)) ht
+
+theorem nonempty_compact_has_max (E : Set ℝ)
+    : E.Nonempty ∧ IsCompact421 E → ∃ x ∈ E, IsUpperBound x E := by
+  contrapose
+  intro hnomax
+  push Not at hnomax
+  push Not
+  intro hnonempty
+  unfold IsCompact421
+  push Not
+  intro hbdd
+  unfold IsBounded at hbdd
+  obtain ⟨_, hbdd⟩ := hbdd
+  have hsup : ∃ M : ℝ, IsSupremum M E := sup_exists E hnonempty hbdd
+  obtain ⟨M, hM⟩ := hsup
+  have : M ∉ E := by by_contra hME; exact hnomax M hME hM.1
+  have : IsBoundary M E := by unfold IsBoundary; intro r hr; constructor; (· by_contra hnone; (have htub : IsUpperBound (M - r / 2) E := by intro y hy; by_contra hgt; have hyM : y ≤ M := hM.1 y hy; (have hN : y ∈ Neighborhood M r := by change dist y M < r; rw [Real.dist_eq, abs_sub_comm]; rw [abs_of_nonneg (sub_nonneg.mpr hyM)]; linarith [lt_of_not_ge hgt]); have hm : y ∈ Neighborhood M r ∩ E := ⟨hN, hy⟩; rw [hnone] at hm; exact hm); exact (hM.2 (M - r / 2) (by linarith)) htub); · by_contra hnone; (have hMmem : M ∈ Neighborhood M r := by change dist M M < r; simp; exact hr); have hm : M ∈ Neighborhood M r ∩ Eᶜ := ⟨hMmem, this⟩; rw [hnone] at hm; exact hm
+  have : ¬(Boundary E ⊆ E) := by intro hsub; (have hmemb : M ∈ Boundary E := by (change M ∈ { x | IsBoundary x E }); exact ‹IsBoundary M E›); exact ‹M ∉ E› (hsub hmemb)
+  intro hclosed; (have hopen : IsOpen421 Eᶜ := by simpa [IsClosed421] using hclosed); have hdis : Eᶜ ∩ Boundary Eᶜ = ∅ := (open_iff_disjoint_from_boundary Eᶜ).mp hopen; have hbeq : Boundary Eᶜ = Boundary E := (boundary_of_set_equals_boundary_of_complement E).symm; rw [hbeq] at hdis; apply this; intro x hx; by_contra hnot; have hm : x ∈ Eᶜ ∩ Boundary E := ⟨hnot, hx⟩; rw [hdis] at hm; exact hm
+  /-have hsupexists: ∃ M : ℝ, IsSupremum M E := by exact sup_exists E hnonempty hcompact.1.2
+  obtain ⟨M, hM⟩ := hsupexists
+  use M
+  constructor
+  · -/
