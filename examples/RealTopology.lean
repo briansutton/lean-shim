@@ -449,8 +449,79 @@ theorem nonempty_compact_has_max (E : Set ℝ)
   have : IsBoundary M E := by unfold IsBoundary; intro r hr; constructor; (· by_contra hnone; (have htub : IsUpperBound (M - r / 2) E := by intro y hy; by_contra hgt; have hyM : y ≤ M := hM.1 y hy; (have hN : y ∈ Neighborhood M r := by change dist y M < r; rw [Real.dist_eq, abs_sub_comm]; rw [abs_of_nonneg (sub_nonneg.mpr hyM)]; linarith [lt_of_not_ge hgt]); have hm : y ∈ Neighborhood M r ∩ E := ⟨hN, hy⟩; rw [hnone] at hm; exact hm); exact (hM.2 (M - r / 2) (by linarith)) htub); · by_contra hnone; (have hMmem : M ∈ Neighborhood M r := by change dist M M < r; simp; exact hr); have hm : M ∈ Neighborhood M r ∩ Eᶜ := ⟨hMmem, this⟩; rw [hnone] at hm; exact hm
   have : ¬(Boundary E ⊆ E) := by intro hsub; (have hmemb : M ∈ Boundary E := by (change M ∈ { x | IsBoundary x E }); exact ‹IsBoundary M E›); exact ‹M ∉ E› (hsub hmemb)
   intro hclosed; (have hopen : IsOpen421 Eᶜ := by simpa [IsClosed421] using hclosed); have hdis : Eᶜ ∩ Boundary Eᶜ = ∅ := (open_iff_disjoint_from_boundary Eᶜ).mp hopen; have hbeq : Boundary Eᶜ = Boundary E := (boundary_of_set_equals_boundary_of_complement E).symm; rw [hbeq] at hdis; apply this; intro x hx; by_contra hnot; have hm : x ∈ Eᶜ ∩ Boundary E := ⟨hnot, hx⟩; rw [hdis] at hm; exact hm
-  /-have hsupexists: ∃ M : ℝ, IsSupremum M E := by exact sup_exists E hnonempty hcompact.1.2
-  obtain ⟨M, hM⟩ := hsupexists
-  use M
+
+theorem union_of_two_compacts_is_compact (E₁ : Set ℝ) (E₂ : Set ℝ) (hcompact1 : IsCompact421 E₁) (hcompact2 : IsCompact421 E₂) : IsCompact421 (E₁ ∪ E₂) := by
+  unfold IsCompact421
+  unfold IsCompact421 at hcompact1
+  unfold IsCompact421 at hcompact2
+  obtain ⟨hbdd1, hclosed1⟩ := hcompact1
+  obtain ⟨hbdd2, hclosed2⟩ := hcompact2
   constructor
-  · -/
+  · have hM₁exists : ∃ M₁ : ℝ, ∀ x ∈ E₁, x ≤ M₁ := by
+      unfold IsBounded at hbdd1
+      obtain ⟨_, hbdd⟩ := hbdd1
+      unfold IsBoundedAbove at hbdd
+      obtain ⟨M, hM⟩ := hbdd
+      use M
+      exact hM
+    obtain ⟨M₁, hM₁⟩ := hM₁exists
+    have hM₂exists : ∃ M₂ : ℝ, ∀ x ∈ E₂, x ≤ M₂ := by
+      unfold IsBounded at hbdd2
+      obtain ⟨_, hbdd⟩ := hbdd2
+      unfold IsBoundedAbove at hbdd
+      obtain ⟨M, hM⟩ := hbdd
+      use M
+      exact hM
+    obtain ⟨M₂, hM₂⟩ := hM₂exists
+    let M := max M₁ M₂
+    have hL₁exists : ∃ L₁ : ℝ, ∀ x ∈ E₁, L₁ ≤ x := by
+      unfold IsBounded at hbdd1
+      obtain ⟨hbdd, _⟩ := hbdd1
+      unfold IsBoundedBelow at hbdd
+      obtain ⟨L, hL⟩ := hbdd
+      use L
+    obtain ⟨L₁, hL₁⟩ := hL₁exists
+    have hL₂exists : ∃ L₂ : ℝ, ∀ x ∈ E₂, L₂ ≤ x := by
+      unfold IsBounded at hbdd2
+      obtain ⟨hbdd, _⟩ := hbdd2
+      unfold IsBoundedBelow at hbdd
+      obtain ⟨L, hL⟩ := hbdd
+      use L
+    obtain ⟨L₂, hL₂⟩ := hL₂exists
+    let L := min L₁ L₂
+    unfold IsBounded
+    constructor
+    · unfold IsBoundedBelow
+      use L
+      intro x hx
+      have : x ∈ E₁ ∨ x ∈ E₂ := by (rcases hx with hx₁ | hx₂); (· exact Or.inl hx₁); · exact Or.inr hx₂
+      rcases this with h1 | h2
+      · exact le_trans (min_le_left L₁ L₂) (hL₁ x h1)
+      · exact le_trans (min_le_right L₁ L₂) (hL₂ x h2)
+    · unfold IsBoundedAbove
+      use M
+      intro x hx
+      (rcases hx with hx₁ | hx₂); (· exact le_trans (hM₁ x hx₁) (le_max_left M₁ M₂)); · exact le_trans (hM₂ x hx₂) (le_max_right M₁ M₂)
+  · exact union_of_two_closeds_is_closed hclosed1 hclosed2
+
+example : ¬(IsCompact421 { 1 / (n : ℝ) | n : PNat }) := by
+  set E := { 1 / (n : ℝ) | n : PNat }
+  suffices ¬(IsClosed421 E) by intro hcompact; rcases hcompact with ⟨_, hclosed⟩; exact this hclosed
+  unfold IsClosed421
+  unfold IsOpen421
+  push Not
+  use 0
+  constructor
+  · intro h; rcases h with ⟨n, hn⟩; (have hnpos : (0 : ℝ) < (n : ℝ) := by exact_mod_cast n.pos); linarith [hn, one_div_pos.mpr hnpos]
+  · unfold IsInteriorTo
+    push Not
+    intro r hr
+    suffices ∃ x ∈ Neighborhood 0 r, x ∈ E by obtain ⟨x, hxN, hxE⟩ := this; exact Set.not_subset.mpr ⟨x, hxN, fun hxC => hxC hxE⟩
+    have hnexists : ∃ n : ℕ, n > 1 / r := by exact exists_nat_gt (1 / r)
+    obtain ⟨n, hn⟩ := hnexists
+    use 1 / (n : ℝ)
+    constructor
+    · have : n > 0 := by (have hn0 : n ≠ 0 := by rintro rfl; linarith [one_div_pos.mpr hr]); exact Nat.pos_iff_ne_zero.mpr hn0
+      have : 1 / (n : ℝ) < r := by have hmul : (1 / r) * r < n * r := mul_lt_mul_of_pos_right hn hr; rw [one_div, inv_mul_cancel₀ hr.ne'] at hmul; exact (div_lt_iff₀ (by exact_mod_cast this)).mpr (by rwa [mul_comm])
+      change dist (1 / (n : ℝ)) 0 < r; rw [Real.dist_eq]; (rw [show 1 / (n : ℝ) - 0 = 1 / (n : ℝ) by ring]); (rw [abs_of_pos (one_div_pos.mpr (by exact_mod_cast ‹n > 0›))]); exact this
+    · refine ⟨⟨n, Nat.pos_of_ne_zero (by rintro rfl; linarith [one_div_pos.mpr hr])⟩, rfl⟩
