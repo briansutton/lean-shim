@@ -525,3 +525,55 @@ example : ¬(IsCompact421 { 1 / (n : ℝ) | n : PNat }) := by
       have : 1 / (n : ℝ) < r := by have hmul : (1 / r) * r < n * r := mul_lt_mul_of_pos_right hn hr; rw [one_div, inv_mul_cancel₀ hr.ne'] at hmul; exact (div_lt_iff₀ (by exact_mod_cast this)).mpr (by rwa [mul_comm])
       change dist (1 / (n : ℝ)) 0 < r; rw [Real.dist_eq]; (rw [show 1 / (n : ℝ) - 0 = 1 / (n : ℝ) by ring]); (rw [abs_of_pos (one_div_pos.mpr (by exact_mod_cast ‹n > 0›))]); exact this
     · refine ⟨⟨n, Nat.pos_of_ne_zero (by rintro rfl; linarith [one_div_pos.mpr hr])⟩, rfl⟩
+
+def IsDisconnected {S} [MetricSpace S] (E : Set S) :=
+  ∃ U₁ U₂ : Set S, IsOpen421 U₁ ∧ IsOpen421 U₂ ∧ (E ∩ U₁) ∩ (E ∩ U₂) = ∅ ∧ E = (E ∩ U₁) ∪ (E ∩ U₂) ∧ E ∩ U₁ ≠ ∅ ∧ E ∩ U₂ ≠ ∅
+
+def IsConnected421 {S} [MetricSpace S] (E : Set S) := ¬(IsDisconnected E)
+
+def IsInterval (E : Set ℝ) := ∀ a b x : ℝ, a ∈ E ∧ b ∈ E ∧ a ≤ x ∧ x ≤ b → x ∈ E
+
+example (E : Set ℝ) : IsConnected421 E ↔ IsInterval E := by
+  constructor
+  · contrapose
+    intro hnotinterval
+    unfold IsInterval at hnotinterval
+    push Not at hnotinterval
+    obtain ⟨a, b, x, habxE⟩ := hnotinterval
+    obtain ⟨habx, hxE⟩ := habxE
+    obtain ⟨ha, hb, hax, hxb⟩ := habx
+    unfold IsConnected421
+    simp
+    unfold IsDisconnected
+    use (Iio x)
+    use (Ioi x)
+    constructor
+    · exact interval_from_minus_infinity_to_b_excluding_b_is_open x
+    constructor
+    · exact interval_from_a_to_infinity_excluding_a_is_open x
+    constructor
+    · apply Set.eq_empty_of_subset_empty; intro y hy; exact (lt_irrefl y) (lt_trans hy.1.2 hy.2.2)
+    constructor
+    · ext y; constructor; (· intro hy; (rcases lt_trichotomy y x with hlt | heq | hgt); (· exact Or.inl ⟨hy, hlt⟩); (· subst y; exact (hxE hy).elim); · exact Or.inr ⟨hy, hgt⟩); · intro hy; (rcases hy with h | h); (· exact h.1); · exact h.1
+    constructor
+    · have : a ∈ Iio x := by by_contra hnot; have heq : a = x := le_antisymm hax (le_of_not_gt hnot); subst a; exact hxE ha
+      have : a ∈ E ∩ Iio x := by exact ⟨ha, this⟩
+      by_contra hempty; rw [hempty] at this; cases this
+    · have : b ∈ Ioi x := by
+        exact lt_of_le_of_ne hxb (fun h => by rw [h] at hxE; exact hxE hb)
+      have : b ∈ E ∩ Ioi x := by exact ⟨hb, this⟩
+      by_contra hempty; rw [hempty] at this; cases this
+  . contrapose
+    intro hdisconnected
+    unfold IsConnected421 at hdisconnected
+    simp at hdisconnected
+    unfold IsDisconnected at hdisconnected
+    obtain ⟨U₁, U₂, hU₁U₂⟩ := hdisconnected
+    obtain ⟨hopen1, hopen2, hdisjoint, hcover, hnonempty1, hnonempty2⟩ := hU₁U₂
+    have haexists : ∃ (a : ℝ), a ∈ (E ∩ U₁) := by obtain ⟨a, ha⟩ := Set.nonempty_iff_ne_empty.mpr hnonempty1; exact ⟨a, ha⟩
+    obtain ⟨a, ha⟩ := haexists
+    have hbexists : ∃ (b : ℝ), b ∈ (E ∩ U₂) := by obtain ⟨b, hb⟩ := Set.nonempty_iff_ne_empty.mpr hnonempty2; exact ⟨b, hb⟩
+    obtain ⟨b, hb⟩ := hbexists
+    have : a ≠ b := by intro hab; subst b; have hboth : a ∈ (E ∩ U₁) ∩ (E ∩ U₂) := ⟨ha, hb⟩; rw [hdisjoint] at hboth; exact hboth
+    rcases le_total a b with haleb | hblea
+    · have : a < b := by exact lt_of_le_of_ne haleb this.symm
