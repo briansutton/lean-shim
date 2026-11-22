@@ -576,4 +576,16 @@ example (E : Set ℝ) : IsConnected421 E ↔ IsInterval E := by
     obtain ⟨b, hb⟩ := hbexists
     have : a ≠ b := by intro hab; subst b; have hboth : a ∈ (E ∩ U₁) ∩ (E ∩ U₂) := ⟨ha, hb⟩; rw [hdisjoint] at hboth; exact hboth
     rcases le_total a b with haleb | hblea
-    · have : a < b := by exact lt_of_le_of_ne haleb this.symm
+    · have : a < b := by exact lt_of_le_of_ne haleb this
+      let I := (Ico a b) ∩ U₁
+      have hMexists : ∃ M : ℝ, IsSupremum M I := by have hInonempty : I.Nonempty := ⟨a, ⟨⟨le_rfl, this⟩, ha.2⟩⟩; (have hbdd : IsBoundedAbove I := by refine ⟨b, ?_⟩; intro x hx; exact le_of_lt hx.1.2); exact sup_exists I hInonempty hbdd
+      obtain ⟨M, hM⟩ := hMexists
+      have : a < M := by rcases hopen1 a ha.2 with ⟨r, hr, hN⟩; let s := min r ((b - a) / 2); let c := a + s / 2; have hspos : 0 < s := lt_min hr (half_pos (sub_pos.mpr this)); (have hcI : c ∈ I := by constructor; (· constructor; (· dsimp [c]; linarith [hspos]); · dsimp [c]; linarith [min_le_right r ((b - a) / 2)]); · apply hN; change dist c a < r; rw [Real.dist_eq]; dsimp [c]; (rw [show a + s / 2 - a = s / 2 by ring, abs_of_pos (half_pos hspos)]); linarith [min_le_left r ((b - a) / 2)]); (have hac : a < c := by dsimp [c]; linarith [hspos]); have hc_le_M : c ≤ M := hM.1 c hcI; by_contra h; linarith [hac, hc_le_M, h]
+      have : IsInteriorTo b U₂ := by exact hopen2 b hb.2
+      have : M ∉ U₂ := by sorry
+      have : M < b := by sorry
+      have : a ∈ E := by sorry
+      have : b ∈ E := by sorry
+      have : M ∉ E := by sorry
+      sorry
+    · sorry
